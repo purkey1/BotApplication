@@ -1,3 +1,4 @@
+//import used modules
 const { SlashCommandBuilder, MessageFlags } = require(`discord.js`);
 const axios = require("axios");
 const {
@@ -5,11 +6,12 @@ const {
   paymentOptionAssetIds,
   Images,
 } = require("../../../config.json");
-
 require("dotenv").config();
+
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
+//gets the CSRF token with the roblox cookie from .env file
 async function getCSRFToken() {
   const res = await fetch("https://auth.roblox.com/v2/logout", {
     method: "POST",
@@ -20,6 +22,7 @@ async function getCSRFToken() {
   return res.headers.get("x-csrf-token");
 }
 
+//gets the collectible ID using the asset ID 
 async function getCollectibleInfo(assetId) {
   const url = "https://catalog.roblox.com/v1/catalog/items/details";
   const body = { items: [{ id: Number(assetId), itemType: "Asset" }] };
@@ -46,6 +49,7 @@ async function getCollectibleInfo(assetId) {
     if (!item?.collectibleItemId)
       throw new Error("This asset is not collectible.");
 
+    //returns the collectible id and name
     return {
       collectibleId: item.collectibleItemId,
       name: item.name,
@@ -56,6 +60,7 @@ async function getCollectibleInfo(assetId) {
   }
 }
 
+//updates the item using price, asset id and roblox cookie from the .env file
 async function updateGamepass(price, assetId, robloxCookie) {
   const { collectibleId, name } = await getCollectibleInfo(assetId);
 
@@ -95,9 +100,11 @@ async function updateGamepass(price, assetId, robloxCookie) {
 }
 
 module.exports = {
+  //creates new command named payment change
   data: new SlashCommandBuilder()
     .setName("payment-change")
     .setDescription("Edit the price of a payment option")
+    //give a list of options for what item to change the price of. (gets the array of asset ids from config and for each value it adds a choice)
     .addStringOption((option) => {
       option
         .setName("option")
@@ -108,6 +115,7 @@ module.exports = {
       });
       return option;
     })
+    //adds number option for the price
     .addIntegerOption((option) =>
       option
         .setName("price")
@@ -116,6 +124,7 @@ module.exports = {
     ),
 
   async execute(interaction) {
+    //checks if the user sending the command has the required role
     const member = await interaction.guild.members.fetch(interaction.user.id);
     const hasRole = member.roles.cache.some((role) =>
       Roles.DesignTeam.includes(role.id) || Roles.SupportTeam.includes(role.id) || Roles.QualityControlTeam.includes(role.id) || Roles.ManagerBoard.includes(role.id) || Roles.Coordinator.includes(role.id) || Roles.ExecutiveBoard.includes(role.id)
@@ -128,15 +137,18 @@ module.exports = {
       });
     }
 
+    //gets results from options
     const assetId = interaction.options.getString("option");
     const price = interaction.options.getInteger("price");
 
+    //updates the gamepass by sending the price asset id and cookie to updateGamepass function
     const gamepassName = await updateGamepass(
       price,
       assetId,
       process.env.robloxCookie
     );
 
+    //makes embed for the response with the name, price and link to the item
     const embed = new EmbedBuilder()
       .setAuthor({
         name: `Payment Changed`,
@@ -157,6 +169,7 @@ module.exports = {
       .setImage(`${Images.Footer}`)
       .setColor(embedHexCode);
 
+      //replys with the embed
     await interaction.reply({
       //content: `**Successfully** changed [${gamepassName}](<https://roblox.com/catalog/${assetId}>) to **${price}**.`,
       embeds: [embed],
