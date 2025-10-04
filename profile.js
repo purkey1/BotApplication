@@ -16,9 +16,11 @@ const {
 } = require("../../../config.json");
 
 module.exports = {
+  //creates new command named profile
   data: new SlashCommandBuilder()
     .setName("profile")
     .setDescription("View a designers profile")
+    //option for what designer to view profile of
     .addUserOption((option) =>
       option
         .setName("designer")
@@ -27,12 +29,25 @@ module.exports = {
     ),
 
   async execute(interaction, client) {
+    //defers the reply to let the bot think
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    //get the user option
     const designer = interaction.options.getUser("designer");
-
+    
+    //find the file in the mongo database that has the designers id in the "designer" option
     const profile = await Designer.findOne({ designer: designer.id });
+    //gets the design team role
+    const designTeam = interaction.guild.roles.cache.get(Roles.DesignTeam);
+    // if the profile isnt found reply with a message and end the interaction
+    if (!profile) {
+      return interaction.editReply({
+        content: `This user does not have a profile. Try inputing a user with the ${designTeam} role.`,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
 
+    //get the options in the profile
     const hired = await interaction.guild.members.cache.get(profile.hiredBy);
     const rankRole = await interaction.guild.roles.fetch(profile.rank[1]);
     const skillRoleNames = await Promise.all(
@@ -42,6 +57,7 @@ module.exports = {
       })
     );
 
+    //creates a date formater
     const formatter = new Intl.DateTimeFormat("en-US", {
       month: "short",
       day: "2-digit",
@@ -53,8 +69,10 @@ module.exports = {
       timeZone: "America/New_York",
       timeZoneName: "short",
     });
+    //formats the hire date
     let formattedDate = formatter.format(profile.dateHired);
 
+    //creates the embed for the response with the info in feilds with blank feilds to make the embed look better
     const profileEmbed = new EmbedBuilder()
       .setAuthor({
         name: `${interaction.guild.name} | ${designer.username}'s Profile`,
@@ -125,6 +143,7 @@ module.exports = {
       .setImage(Images.Footer)
       .setColor(embedHexCode);
 
+      //replys with the embed
     interaction.editReply({ embeds: [profileEmbed] });
   },
 };
